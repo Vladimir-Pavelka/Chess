@@ -66,7 +66,7 @@
             var castlingAvailability = GetCastlingAvailabilityFenString();
             var enPassantTargetSquare = GetEnPassantFenString();
 
-            return $"{boardContent} {activeColor} {castlingAvailability} {} {} {}";
+            return $"{boardContent} {activeColor} {castlingAvailability} {enPassantTargetSquare} {0} {0}";
         }
 
         private string GetBoardContentFenString()
@@ -122,7 +122,17 @@
 
         private string GetEnPassantFenString()
         {
-            throw new NotImplementedException();
+            if (!IsEnPassantTarget(_lastMove)) return "-";
+            var file = ('a' + _lastMove.Source.column).ToString();
+            var rank = _lastMove.Source.row + _lastMove.Destination.row / 2;
+
+            return $"{file}{rank}";
+        }
+
+        private bool IsEnPassantTarget(Move move)
+        {
+            if (move.PieceType != PieceType.BlackPawn && move.PieceType != PieceType.WhitePawn) return false;
+            return Math.Abs(move.Source.row - move.Destination.row) == 2;
         }
     }
 }
