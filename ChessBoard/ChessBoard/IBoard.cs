@@ -6,6 +6,6 @@ namespace ChessBoard
     {
         IEnumerable<Move> WhiteMoves { get; }
         IEnumerable<Move> BlackMoves { get; }
-        void ExecuteMove(Move move);
+        IBoard ExecuteMove(Move move);
     }
 }

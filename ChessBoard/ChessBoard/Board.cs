@@ -7,31 +7,77 @@
 
     public class Board : IBoard
     {
-        private readonly IDictionary<PieceType, string> _fenNotationPieceNames = new Dictionary<PieceType, string> {
-                { PieceType.BlackPawn, "p" }, { PieceType.BlackRook, "r" }, { PieceType.BlackKnight, "n" },
-                { PieceType.BlackBishop, "b" }, { PieceType.BlackQueen, "q" }, { PieceType.BlackKing, "k" },
-                { PieceType.WhitePawn, "P" }, { PieceType.WhiteRook, "R" }, { PieceType.WhiteKnight, "N" },
-                { PieceType.WhiteBishop, "B" }, { PieceType.WhiteQueen, "Q" }, { PieceType.WhiteKing, "K" }
-        };
+        private readonly PieceType[,] _boardState = new PieceType[8, 8];
+        
+        private readonly bool _whiteKingMoved;
+        private readonly bool _whiteKingsideRookMoved;
+        private readonly bool _whiteQueensideRookMoved;
+        
+        private readonly bool _blackKingMoved;
+        private readonly bool _blackKingsideRookMoved;
+        private readonly bool _blackQueensideRookMoved;
+        
+        private readonly bool _isWhitesMove = true;
+        private readonly int _fullmoveCount = 1;
+        private readonly int _halfmovesSinceLastCaptureOrPawnAdvance = 0;
+
+        private Move _lastMove;
+
+        private Board()
+        {
+        }
+
+        private Board(Board previousState, Move move)
+        {
+            var newBoardState = (PieceType[,])previousState._boardState.Clone();
+            newBoardState[move.Source.row, move.Source.column] = PieceType.None;
+            newBoardState[move.Destination.row, move.Destination.column] = move.PieceType;
+
+            if (move.MoveType == MoveType.EnPassantCapture)
+            {
+                var capturedPawnPos = (row: move.Source.row, column: move.Destination.column);
+                newBoardState[capturedPawnPos.row, capturedPawnPos.column] = PieceType.None;
+            }
+
+            if (move.MoveType == MoveType.Castle)
+            {
+                var isKingsideCastle = move.Destination.column > move.Source.column;
+                var row = move.Source.row;
+                var rookSourcePos = isKingsideCastle ? (row: row, column: 7) : (row: row, column: 0);
+                var rookDestPos = isKingsideCastle ? (row: row, column: 5) : (row: row, column: 3);
+                newBoardState[rookDestPos.row, rookDestPos.column] = newBoardState[rookSourcePos.row, rookSourcePos.column];
+                newBoardState[rookSourcePos.row, rookSourcePos.column] = PieceType.None;
+            }
+
+            _boardState = newBoardState;
+
+            _whiteKingMoved = previousState._whiteKingMoved || move.PieceType == PieceType.WhiteKing;
+            _whiteKingsideRookMoved = previousState._whiteKingsideRookMoved || move.PieceType == PieceType.WhiteRook && move.Source == (7, 7);
+            _whiteQueensideRookMoved = previousState._whiteQueensideRookMoved || move.PieceType == PieceType.WhiteRook && move.Source == (7, 0);
+
+            _blackKingMoved = previousState._blackKingMoved || move.PieceType == PieceType.BlackKing;
+            _blackKingsideRookMoved = previousState._blackKingsideRookMoved || move.PieceType == PieceType.BlackRook && move.Source == (0, 7);
+            _blackQueensideRookMoved = previousState._blackQueensideRookMoved || move.PieceType == PieceType.BlackRook && move.Source == (0, 0);
+
+            _isWhitesMove = !previousState._isWhitesMove;
+            _fullmoveCount = previousState._fullmoveCount + (previousState._isWhitesMove ? 0 : 1);
+            _halfmovesSinceLastCaptureOrPawnAdvance = IsProgressMade(move) ? 0 : previousState._halfmovesSinceLastCaptureOrPawnAdvance + 1;
+
+            _lastMove = move;
+        }
+
+        private static bool IsProgressMade(Move move) =>
+            move.MoveType == MoveType.Capture ||
+            move.PieceType == PieceType.BlackPawn ||
+            move.PieceType == PieceType.WhitePawn;
 
         public IEnumerable<Move> WhiteMoves => throw new NotImplementedException();
         public IEnumerable<Move> BlackMoves => throw new NotImplementedException();
-        public void ExecuteMove(Move move) => throw new NotImplementedException();
+
+        public IBoard ExecuteMove(Move move) =>
+            new Board(this, move);
 
         public PieceType this[int row, int column] { get { return _boardState[row, column]; } }
-
-        private readonly PieceType[,] _boardState = new PieceType[8, 8];
-        private bool _whiteKingMoved;
-        private bool _whiteKingsideRookMoved;
-        private bool _whiteQueensideRookMoved;
-
-        private bool _blackKingMoved;
-        private bool _blackKingsideRookMoved;
-        private bool _blackQueensideRookMoved;
-
-        private bool _isWhitesMove;
-
-        private Move _lastMove;
 
         private void InitializeBoard()
         {
@@ -66,7 +112,7 @@
             var castlingAvailability = GetCastlingAvailabilityFenString();
             var enPassantTargetSquare = GetEnPassantFenString();
 
-            return $"{boardContent} {activeColor} {castlingAvailability} {enPassantTargetSquare} {0} {0}";
+            return $"{boardContent} {activeColor} {castlingAvailability} {enPassantTargetSquare} {_halfmovesSinceLastCaptureOrPawnAdvance} {_fullmoveCount}";
         }
 
         private string GetBoardContentFenString()
@@ -80,19 +126,19 @@
                 for (var col = 0; col < 8; col++)
                 {
                     var currentSquare = _boardState[row, col];
-                    if (currentSquare != PieceType.None)
+                    if (currentSquare == PieceType.None)
                     {
-                        if (emptySquaresCounter > 0)
-                        {
-                            result.Append(emptySquaresCounter);
-                            emptySquaresCounter = 0;
-                        }
-
-                        result.Append(_fenNotationPieceNames[currentSquare]);
+                        emptySquaresCounter++;
                         continue;
                     }
 
-                    emptySquaresCounter++;
+                    if (emptySquaresCounter > 0)
+                    {
+                        result.Append(emptySquaresCounter);
+                        emptySquaresCounter = 0;
+                    }
+
+                    result.Append(_fenNotationPieceNames[currentSquare]);
                 }
 
                 if (emptySquaresCounter > 0) result.Append(emptySquaresCounter);
@@ -101,6 +147,13 @@
 
             return result.ToString();
         }
+
+        private static readonly IDictionary<PieceType, string> _fenNotationPieceNames = new Dictionary<PieceType, string> {
+                { PieceType.BlackPawn, "p" }, { PieceType.BlackRook, "r" }, { PieceType.BlackKnight, "n" },
+                { PieceType.BlackBishop, "b" }, { PieceType.BlackQueen, "q" }, { PieceType.BlackKing, "k" },
+                { PieceType.WhitePawn, "P" }, { PieceType.WhiteRook, "R" }, { PieceType.WhiteKnight, "N" },
+                { PieceType.WhiteBishop, "B" }, { PieceType.WhiteQueen, "Q" }, { PieceType.WhiteKing, "K" }
+        };
 
         private string GetCastlingAvailabilityFenString()
         {
@@ -123,8 +176,8 @@
         private string GetEnPassantFenString()
         {
             if (!IsEnPassantTarget(_lastMove)) return "-";
-            var file = ('a' + _lastMove.Source.column).ToString();
-            var rank = _lastMove.Source.row + _lastMove.Destination.row / 2;
+            var file = (char)('a' + _lastMove.Source.column);
+            var rank = 8 - (_lastMove.Source.row + _lastMove.Destination.row) / 2;
 
             return $"{file}{rank}";
         }
@@ -132,7 +185,8 @@
         private bool IsEnPassantTarget(Move move)
         {
             if (move.PieceType != PieceType.BlackPawn && move.PieceType != PieceType.WhitePawn) return false;
-            return Math.Abs(move.Source.row - move.Destination.row) == 2;
+            var hasMovedByTwo = Math.Abs(move.Source.row - move.Destination.row) == 2;
+            return hasMovedByTwo;
         }
     }
 }
