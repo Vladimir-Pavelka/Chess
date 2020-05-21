@@ -39,32 +39,31 @@ namespace Tests
         }
 
         [Fact]
-        public void WhenNewGameIsInitialized_ThenFenStringShouldBeCalculatedCorrectly()
-        {
-            const string initialFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-            var board = Board.NewGame();
-
-            var fen = board.ToString();
-
-            fen.Should().Be(initialFen);
-        }
-
-        [Fact]
         public void WhenMovesArePerformed_ThenFenStringShouldBeCalculatedCorrectly()
         {
             var board = Board.NewGame();
 
-            var move1 = new Move(PieceType.WhitePawn, MoveType.Move, Pos(e, 2), Pos(e, 4));
-            var board2 = board.ExecuteMove(move1);
+            var move1 = new Move(PieceType.WhitePawn, MoveType.EnPassantMove, Pos(e, 2), Pos(e, 4));
+            var board2 = board.MakeMove(move1);
             board2.ToString().Should().Be("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1");
 
-            var move2 = new Move(PieceType.BlackPawn, MoveType.Move, Pos(c, 7), Pos(c, 5));
-            var board3 = board2.ExecuteMove(move2);
+            var move2 = new Move(PieceType.BlackPawn, MoveType.EnPassantMove, Pos(c, 7), Pos(c, 5));
+            var board3 = board2.MakeMove(move2);
             board3.ToString().Should().Be("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2");
 
             var move3 = new Move(PieceType.WhiteKnight, MoveType.Move, Pos(g, 1), Pos(f, 3));
-            var board4 = board3.ExecuteMove(move3);
+            var board4 = board3.MakeMove(move3);
             board4.ToString().Should().Be("rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2");
+        }
+
+        [Theory]
+        [InlineData("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")]
+        [InlineData("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")]
+        [InlineData("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2")]
+        [InlineData("rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2")]
+        public void WhenBoardInitializedFromFen_ThenToStringReturnsTheSameFen(string fen)
+        {
+            new Board(fen).ToString().Should().Be(fen);
         }
 
         private static (int row, int col) Pos(int file, int rank) => (8 - rank, file - 1);

@@ -3,6 +3,7 @@
     public enum MoveType
     {
         Move,
+        EnPassantMove,
         Capture,
         EnPassantCapture,
         Castle
