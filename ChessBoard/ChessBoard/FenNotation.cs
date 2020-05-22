@@ -1,6 +1,5 @@
 ﻿namespace ChessBoard
 {
-    using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Text;
@@ -81,7 +80,7 @@
         private static string GetEnPassantFenString(Move lastMove)
         {
             if (lastMove.MoveType != MoveType.EnPassantMove) return "-";
-            var file = (char)('a' + lastMove.Source.column);
+            var file = (char)('a' + lastMove.Source.col);
             var rank = 8 - (lastMove.Source.row + lastMove.Destination.row) / 2;
 
             return $"{file}{rank}";
