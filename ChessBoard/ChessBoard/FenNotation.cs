@@ -15,15 +15,14 @@
 
         private static readonly IDictionary<string, PieceType> _fenToPieceType = _pieceTypeToFen.ToDictionary(x => x.Value, x => x.Key);
 
-        public static string GetFenString(PieceType[,] boardState, Move lastMove, Castling castlingInfo, int halfmovesSinceLastCaptureOrPawnAdvance, int fullmoveCount)
+        public static string GetFenString(Board board)
         {
-            var boardContent = GetBoardContentFenString(boardState);
-            var isWhitesMove = !lastMove.IsWhitesMove;
-            var activeColor = isWhitesMove ? "w" : "b";
-            var castlingAvailability = GetCastlingAvailabilityFenString(castlingInfo);
-            var enPassantTargetSquare = GetEnPassantFenString(lastMove);
+            var boardContent = GetBoardContentFenString(board.BoardState);
+            var activeColor = board.IsWhitesTurn ? "w" : "b";
+            var castlingAvailability = GetCastlingAvailabilityFenString(board.Castling);
+            var enPassantTargetSquare = GetEnPassantFenString(board.EnPassantTarget);
 
-            return $"{boardContent} {activeColor} {castlingAvailability} {enPassantTargetSquare} {halfmovesSinceLastCaptureOrPawnAdvance} {fullmoveCount}";
+            return $"{boardContent} {activeColor} {castlingAvailability} {enPassantTargetSquare} {board.HalfmovesSinceLastCaptureOrPawnAdvance} {board.FullmoveCount}";
         }
 
         private static string GetBoardContentFenString(PieceType[,] boardState)
@@ -77,11 +76,11 @@
             return string.IsNullOrEmpty(castlingAvailability) ? "-" : castlingAvailability;
         }
 
-        private static string GetEnPassantFenString(Move lastMove)
+        private static string GetEnPassantFenString((int row, int col)? enPassantTarget)
         {
-            if (lastMove.MoveType != MoveType.EnPassantMove) return "-";
-            var file = (char)('a' + lastMove.Source.col);
-            var rank = 8 - (lastMove.Source.row + lastMove.Destination.row) / 2;
+            if (!enPassantTarget.HasValue) return "-";
+            var file = (char)('a' + enPassantTarget.Value.col);
+            var rank = 8 - enPassantTarget.Value.row;
 
             return $"{file}{rank}";
         }
@@ -150,26 +149,14 @@
             return int.Parse(fullMovesFen);
         }
 
-        public static Move GetEnPassantMove(string fen)
+        public static (int row, int col)? GetEnPassantTarget(string fen)
         {
-            var isWhitesMove = GetIsWhitesMove(fen);
             var enPassantFen = fen.Split(" ")[3];
-
-            var lastMovePlayerPiece = isWhitesMove ? PieceType.King : PieceType.White;
-
-            if (enPassantFen == "-")
-            {
-                var dummyColoredMove = new Move(lastMovePlayerPiece, MoveType.Move, (0, 0), (0, 0));
-                return dummyColoredMove;
-            }
+            if (enPassantFen == "-") return null;
 
             var col = enPassantFen[0] - 'a';
             var row = 8 - int.Parse($"{enPassantFen[1]}");
-
-            var source = (row + (isWhitesMove ? -1 : 1), col);
-            var dest = (row + (isWhitesMove ? 1 : -1), col);
-
-            return new Move(lastMovePlayerPiece, MoveType.EnPassantMove, source, dest);
+            return (row, col);
         }
     }
 }

@@ -6,30 +6,26 @@
 
     public class Board : IBoard
     {
-        private readonly PieceType[,] _boardState = new PieceType[8, 8];
-        public Castling Castling { get; }
-
-        private readonly int _fullmoveCount = 1;
-        private readonly int _halfmovesSinceLastCaptureOrPawnAdvance = 0;
+        public readonly PieceType[,] BoardState = new PieceType[8, 8];
+        public readonly bool IsWhitesTurn;
+        public readonly Castling Castling;
+        public readonly (int row, int col)? EnPassantTarget;
+        public readonly int HalfmovesSinceLastCaptureOrPawnAdvance;
+        public readonly int FullmoveCount = 1;
 
         public Board(string fen)
         {
-            _boardState = FenNotation.GetBoardContent(fen);
-            Castling = FenNotation.GetCastlingInfo(fen);
-
+            BoardState = FenNotation.GetBoardContent(fen);
             IsWhitesTurn = FenNotation.GetIsWhitesMove(fen);
-            _fullmoveCount = FenNotation.GetFullmoveCount(fen);
-            _halfmovesSinceLastCaptureOrPawnAdvance = FenNotation.GetHalfmovesSinceProgressCount(fen);
-
-            LastMove = FenNotation.GetEnPassantMove(fen);
-
-            if (LastMove.MoveType == MoveType.EnPassantMove)
-                EnPassantTarget = ((LastMove.Source.row + LastMove.Destination.row) / 2, LastMove.Destination.col);
+            Castling = FenNotation.GetCastlingInfo(fen);
+            EnPassantTarget = FenNotation.GetEnPassantTarget(fen);
+            HalfmovesSinceLastCaptureOrPawnAdvance = FenNotation.GetHalfmovesSinceProgressCount(fen);
+            FullmoveCount = FenNotation.GetFullmoveCount(fen);
         }
 
         private Board(Board previousState, Move move)
         {
-            var newBoardState = (PieceType[,])previousState._boardState.Clone();
+            var newBoardState = (PieceType[,])previousState.BoardState.Clone();
             newBoardState[move.Source.row, move.Source.col] = PieceType.None;
             newBoardState[move.Destination.row, move.Destination.col] = move.PromotedInto ?? move.PieceType;
 
@@ -49,7 +45,7 @@
                 newBoardState[rookSourcePos.row, rookSourcePos.col] = PieceType.None;
             }
 
-            _boardState = newBoardState;
+            BoardState = newBoardState;
 
             Castling = previousState.Castling;
             if (move.PieceType.HasFlag(PieceType.King)) Castling |= move.PieceType.HasFlag(PieceType.White) ? Castling.WhiteKingMoved : Castling.BlackKingMoved;
@@ -60,13 +56,10 @@
             }
 
             IsWhitesTurn = !previousState.IsWhitesTurn;
-            _fullmoveCount = previousState._fullmoveCount + (previousState.IsWhitesTurn ? 0 : 1);
-            _halfmovesSinceLastCaptureOrPawnAdvance = IsProgressMade(move) ? 0 : previousState._halfmovesSinceLastCaptureOrPawnAdvance + 1;
+            FullmoveCount = previousState.FullmoveCount + (IsWhitesTurn ? 1 : 0);
+            HalfmovesSinceLastCaptureOrPawnAdvance = IsProgressMade(move) ? 0 : previousState.HalfmovesSinceLastCaptureOrPawnAdvance + 1;
 
-            LastMove = move;
-
-            if (LastMove.MoveType == MoveType.EnPassantMove)
-                EnPassantTarget = ((LastMove.Source.row + LastMove.Destination.row) / 2, LastMove.Destination.col);
+            EnPassantTarget = move.MoveType == MoveType.EnPassantMove ? ((move.Source.row + move.Destination.row) / 2, move.Destination.col) : default((int, int)?);
         }
 
         private static bool IsProgressMade(Move move) =>
@@ -75,20 +68,16 @@
 
         public IBoard MakeMove(Move move) => new Board(this, move);
 
-        public PieceType this[int row, int col] => _boardState[row, col];
-        public PieceType this[(int row, int col) pos] => _boardState[pos.row, pos.col];
-        public bool IsEmptyAt((int row, int col) pos) => _boardState[pos.row, pos.col] == PieceType.None;
+        public PieceType this[int row, int col] => BoardState[row, col];
+        public PieceType this[(int row, int col) pos] => BoardState[pos.row, pos.col];
+        public bool IsEmptyAt((int row, int col) pos) => BoardState[pos.row, pos.col] == PieceType.None;
 
-        public IEnumerable<Piece> BoardPieces => _boardState.Select((type, pos) => new Piece(type, pos)).Where(p => p.Type != PieceType.None);
+        public IEnumerable<Piece> BoardPieces => BoardState.Select((type, pos) => new Piece(type, pos)).Where(p => p.Type != PieceType.None);
         public IEnumerable<Piece> WhitePieces => BoardPieces.Where(p => p.Type.HasFlag(PieceType.White));
         public IEnumerable<Piece> BlackPieces => BoardPieces.Where(p => !p.Type.HasFlag(PieceType.White));
 
         public IEnumerable<Move> WhiteMoves => throw new NotImplementedException();
         public IEnumerable<Move> BlackMoves => throw new NotImplementedException();
-
-        public bool IsWhitesTurn { get; }
-        public Move LastMove { get; }
-        public (int row, int col)? EnPassantTarget { get; }
 
         public static Board NewGame()
         {
@@ -96,7 +85,6 @@
             return new Board(startingPositionFen);
         }
 
-        public override string ToString() =>
-            FenNotation.GetFenString(_boardState, LastMove, Castling, _halfmovesSinceLastCaptureOrPawnAdvance, _fullmoveCount);
+        public override string ToString() => FenNotation.GetFenString(this);
     }
 }
