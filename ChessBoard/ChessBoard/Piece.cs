@@ -11,8 +11,8 @@
         public PieceType Type { get; }
         public (int row, int col) Position { get; }
 
-        public bool IsWhite => PieceType.WhitePiece.HasFlag(Type);
-        public bool IsOponentOf(PieceType other) => other != PieceType.None && PieceType.WhitePiece.HasFlag(Type) != PieceType.WhitePiece.HasFlag(other);
-        public bool IsAllyOf(PieceType other) => other != PieceType.None && PieceType.WhitePiece.HasFlag(Type) == PieceType.WhitePiece.HasFlag(other);
+        public bool IsWhite => Type.HasFlag(PieceType.White);
+        public bool IsOponentOf(PieceType other) => other != PieceType.None && Type.HasFlag(PieceType.White) != other.HasFlag(PieceType.White);
+        public bool IsAllyOf(PieceType other) => other != PieceType.None && Type.HasFlag(PieceType.White) == other.HasFlag(PieceType.White);
     }
 }

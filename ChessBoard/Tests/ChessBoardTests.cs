@@ -12,25 +12,25 @@ namespace Tests
         {
             var board = Board.NewGame();
 
-            board[0, 0].Should().Be(PieceType.BlackRook);
-            board[0, 7].Should().Be(PieceType.BlackRook);
-            board[0, 1].Should().Be(PieceType.BlackKnight);
-            board[0, 6].Should().Be(PieceType.BlackKnight);
-            board[0, 2].Should().Be(PieceType.BlackBishop);
-            board[0, 5].Should().Be(PieceType.BlackBishop);
-            board[0, 3].Should().Be(PieceType.BlackQueen);
-            board[0, 4].Should().Be(PieceType.BlackKing);
-            Enumerable.Range(0, 8).Select(i => board[1, i]).Should().AllBeEquivalentTo(PieceType.BlackPawn);
+            board[0, 0].Should().Be(PieceType.Rook);
+            board[0, 7].Should().Be(PieceType.Rook);
+            board[0, 1].Should().Be(PieceType.Knight);
+            board[0, 6].Should().Be(PieceType.Knight);
+            board[0, 2].Should().Be(PieceType.Bishop);
+            board[0, 5].Should().Be(PieceType.Bishop);
+            board[0, 3].Should().Be(PieceType.Queen);
+            board[0, 4].Should().Be(PieceType.King);
+            Enumerable.Range(0, 8).Select(i => board[1, i]).Should().AllBeEquivalentTo(PieceType.Pawn);
 
-            board[7, 0].Should().Be(PieceType.WhiteRook);
-            board[7, 7].Should().Be(PieceType.WhiteRook);
-            board[7, 1].Should().Be(PieceType.WhiteKnight);
-            board[7, 6].Should().Be(PieceType.WhiteKnight);
-            board[7, 2].Should().Be(PieceType.WhiteBishop);
-            board[7, 5].Should().Be(PieceType.WhiteBishop);
-            board[7, 3].Should().Be(PieceType.WhiteQueen);
-            board[7, 4].Should().Be(PieceType.WhiteKing);
-            Enumerable.Range(0, 8).Select(i => board[6, i]).Should().AllBeEquivalentTo(PieceType.WhitePawn);
+            board[7, 0].Should().Be(PieceType.Rook | PieceType.White);
+            board[7, 7].Should().Be(PieceType.Rook | PieceType.White);
+            board[7, 1].Should().Be(PieceType.Knight | PieceType.White);
+            board[7, 6].Should().Be(PieceType.Knight | PieceType.White);
+            board[7, 2].Should().Be(PieceType.Bishop | PieceType.White);
+            board[7, 5].Should().Be(PieceType.Bishop | PieceType.White);
+            board[7, 3].Should().Be(PieceType.Queen | PieceType.White);
+            board[7, 4].Should().Be(PieceType.King | PieceType.White);
+            Enumerable.Range(0, 8).Select(i => board[6, i]).Should().AllBeEquivalentTo(PieceType.Pawn | PieceType.White);
 
             Enumerable.Range(0, 8).Select(i => board[2, i]).Should().AllBeEquivalentTo(PieceType.None);
             Enumerable.Range(0, 8).Select(i => board[3, i]).Should().AllBeEquivalentTo(PieceType.None);
@@ -43,15 +43,15 @@ namespace Tests
         {
             var board = Board.NewGame();
 
-            var move1 = new Move(PieceType.WhitePawn, MoveType.EnPassantMove, Pos(e, 2), Pos(e, 4));
+            var move1 = new Move(PieceType.Pawn | PieceType.White, MoveType.EnPassantMove, Pos(e, 2), Pos(e, 4));
             var board2 = board.MakeMove(move1);
             board2.ToString().Should().Be("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1");
 
-            var move2 = new Move(PieceType.BlackPawn, MoveType.EnPassantMove, Pos(c, 7), Pos(c, 5));
+            var move2 = new Move(PieceType.Pawn, MoveType.EnPassantMove, Pos(c, 7), Pos(c, 5));
             var board3 = board2.MakeMove(move2);
             board3.ToString().Should().Be("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2");
 
-            var move3 = new Move(PieceType.WhiteKnight, MoveType.Move, Pos(g, 1), Pos(f, 3));
+            var move3 = new Move(PieceType.Knight | PieceType.White, MoveType.Move, Pos(g, 1), Pos(f, 3));
             var board4 = board3.MakeMove(move3);
             board4.ToString().Should().Be("rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2");
         }

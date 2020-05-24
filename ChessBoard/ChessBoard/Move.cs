@@ -17,7 +17,7 @@
             PromotedInto = promotedInto;
         }
 
-        public bool IsWhitesMove => PieceType.WhitePiece.HasFlag(PieceType);
+        public bool IsWhitesMove => PieceType.HasFlag(PieceType.White);
         public bool IsPawnPromotion => PromotedInto.HasValue;
     }
 }

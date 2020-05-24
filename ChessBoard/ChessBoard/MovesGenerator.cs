@@ -4,7 +4,7 @@
     using System.Linq;
     using System.Collections.Generic;
 
-    class MovesGenerator
+    public class MovesGenerator
     {
         private delegate IEnumerable<Move> MovesFactory(Piece p, Board b);
 
@@ -14,12 +14,12 @@
         {
             _getPieceMovesFnMap = new Dictionary<PieceType, MovesFactory>
             {
-                { PieceType.WhitePawn, GetPawnMoves }, { PieceType.BlackPawn, GetPawnMoves },
-                { PieceType.WhiteKnight, GetKnightMoves }, { PieceType.BlackKnight, GetKnightMoves },
-                { PieceType.WhiteBishop, GetBishopMoves }, { PieceType.BlackBishop, GetBishopMoves },
-                { PieceType.WhiteRook, GetRookMoves }, { PieceType.BlackRook, GetRookMoves },
-                { PieceType.WhiteQueen, GetQueenMoves }, { PieceType.BlackQueen, GetQueenMoves },
-                { PieceType.WhiteKing, GetKingMoves }, { PieceType.BlackKing, GetKingMoves },
+                { PieceType.Pawn, GetPawnMoves },
+                { PieceType.Knight, GetKnightMoves },
+                { PieceType.Bishop, GetBishopMoves },
+                { PieceType.Rook, GetRookMoves },
+                { PieceType.Queen, GetQueenMoves },
+                { PieceType.King, GetKingMoves },
             };
         }
 
@@ -29,8 +29,9 @@
             return movablePieces.SelectMany(p => _getPieceMovesFnMap[p.Type](p, board));
         }
 
-        private readonly PieceType[] _whitePromotionPieces = new[] { PieceType.WhiteKnight, PieceType.WhiteBishop, PieceType.WhiteRook, PieceType.WhiteQueen };
-        private readonly PieceType[] _blackPromotionPieces = new[] { PieceType.BlackKnight, PieceType.BlackBishop, PieceType.BlackRook, PieceType.BlackQueen };
+        private static readonly PieceType[] _blackPromotionPieces = new[] { PieceType.Knight, PieceType.Bishop, PieceType.Rook, PieceType.Queen };
+        private static readonly PieceType[] _whitePromotionPieces = _blackPromotionPieces.Select(pt => pt | PieceType.White).ToArray();
+
         private readonly int[] _promotionRows = new[] { 0, 7 };
         private const int whitePawnStartRow = 6;
         private const int blackPawnStartRow = 1;
@@ -126,10 +127,11 @@
 
         private IEnumerable<Move> GetKingCastlingMoves(Piece king, Board board)
         {
-            var hasKingMoved = king.IsWhite ? board.WhiteKingMoved : board.BlackKingMoved;
-            if (!hasKingMoved) yield break;
+            var kingMove = king.IsWhite ? Castling.WhiteKingMoved : Castling.BlackKingMoved;
+            if (board.Castling.HasFlag(kingMove)) yield break;
 
-            var hasKingsideRookMoved = king.IsWhite ? board.WhiteKingsideRookMoved : board.BlackKingsideRookMoved;
+            var kingsideRookMove = king.IsWhite ? Castling.WhiteKingsideRookMoved : Castling.BlackKingsideRookMoved;
+            var hasKingsideRookMoved = board.Castling.HasFlag(kingsideRookMove);
             if (!hasKingsideRookMoved)
             {
                 var dest = (row: king.Position.row, col: king.Position.col + 2);
@@ -141,7 +143,8 @@
                     yield return new Move(king.Type, MoveType.Castle, king.Position, dest);
             }
 
-            var hasQueensideRookMoved = king.IsWhite ? board.WhiteQueensideRookMoved : board.BlackQueensideRookMoved;
+            var queensideRookMove = king.IsWhite ? Castling.WhiteQueensideRookMoved : Castling.BlackQueensideRookMoved;
+            var hasQueensideRookMoved = board.Castling.HasFlag(queensideRookMove);
             if (!hasQueensideRookMoved)
             {
                 var dest = (row: king.Position.row, col: king.Position.col - 2);
@@ -177,6 +180,64 @@
         private static (int row, int col) Avg((int row, int col) a, (int row, int col) b) =>
             ((a.row + b.row) / 2, (b.col + b.col) / 2);
 
-        private static bool IsAttacked((int row, int col) pos, PieceType defender, Board board) => false;
+        private const PieceType N = PieceType.Knight | PieceType.White;
+        private const PieceType S = PieceType.StraightRay;
+        private const PieceType D = PieceType.DiagonalRay;
+        private const PieceType X = S | PieceType.King;
+        private const PieceType Y = D | PieceType.Pawn | PieceType.King;
+
+        private static readonly PieceType[,] _attacksBitMap = new PieceType[,]
+        {   //7 6 5 4 3 2 1 0 1 2 3 4 5 6 7
+            { D,0,0,0,0,0,0,S,0,0,0,0,0,0,D}, // 7
+            { 0,D,0,0,0,0,0,S,0,0,0,0,0,D,0}, // 6
+            { 0,0,D,0,0,0,0,S,0,0,0,0,D,0,0}, // 5
+            { 0,0,0,D,0,0,0,S,0,0,0,D,0,0,0}, // 4
+            { 0,0,0,0,D,0,0,S,0,0,D,0,0,0,0}, // 3
+            { 0,0,0,0,0,D,N,S,N,D,0,0,0,0,0}, // 2
+            { 0,0,0,0,0,N,Y,X,Y,N,0,0,0,0,0}, // 1
+            { S,S,S,S,S,S,X,0,X,S,S,S,S,S,S}, // 0
+            { 0,0,0,0,0,N,Y,X,Y,N,0,0,0,0,0}, // 1
+            { 0,0,0,0,0,D,N,S,N,D,0,0,0,0,0}, // 2
+            { 0,0,0,0,D,0,0,S,0,0,D,0,0,0,0}, // 3
+            { 0,0,0,D,0,0,0,S,0,0,0,D,0,0,0}, // 4
+            { 0,0,D,0,0,0,0,S,0,0,0,0,D,0,0}, // 5
+            { 0,D,0,0,0,0,0,S,0,0,0,0,0,D,0}, // 6
+            { D,0,0,0,0,0,0,S,0,0,0,0,0,0,D}, // 7
+        };
+
+        private static readonly (int row, int col) _attacksBitMapCenter = (7, 7);
+
+        private static bool IsAttacked((int row, int col) defPos, PieceType defenderColor, Board board)
+        {
+            var enemyPieces = defenderColor.HasFlag(PieceType.White) ? board.WhitePieces : board.BlackPieces;
+            return enemyPieces.Any(attacker =>
+            {
+                var defenderBitMapPosRow = defPos.row - attacker.Position.row + _attacksBitMapCenter.row;
+                var defenderBitMapPosCol = defPos.col - attacker.Position.col + _attacksBitMapCenter.col;
+                var isInLineOfSight = _attacksBitMap[defenderBitMapPosRow, defenderBitMapPosCol].HasFlag(attacker.Type);
+                if (!isInLineOfSight) return false;
+                if (PieceType.RayPiece.HasFlag(attacker.Type)) return !IsRayBlocked(defPos, attacker.Position, board);
+                if (!attacker.Type.HasFlag(PieceType.Pawn)) return true;
+                var isInFrontOfPawn = attacker.Type.HasFlag(PieceType.White) && attacker.Position.row > defPos.row ||
+                !defenderColor.HasFlag(PieceType.White) && attacker.Position.row < defPos.row;
+
+                return isInFrontOfPawn;
+            });
+        }
+
+        private static bool IsRayBlocked((int row, int col) a, (int row, int col) b, Board board) =>
+            GetPositionsInbetween(a, b).Any(p => !board.IsEmptyAt(p));
+
+        public static IEnumerable<(int row, int col)> GetPositionsInbetween((int row, int col) a, (int row, int col) b)
+        {
+            var stepsInbetween = Math.Max(Math.Abs(a.row - b.row), Math.Abs(a.col - b.col)) - 1;
+            var rowRange = a.row == b.row ? Enumerable.Repeat(a.row, stepsInbetween) : GetExclusiveRange(a.row, b.row);
+            var colRange = a.col == b.col ? Enumerable.Repeat(a.col, stepsInbetween) : GetExclusiveRange(a.col, b.col);
+
+            return rowRange.Zip(colRange, (row, col) => (row, col));
+        }
+
+        private static IEnumerable<int> GetExclusiveRange(int a, int b) =>
+            Enumerable.Range(Math.Min(a, b) + 1, Math.Abs(a - b) - 1);
     }
 }

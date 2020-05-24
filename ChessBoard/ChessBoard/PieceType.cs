@@ -3,23 +3,19 @@
     using System;
 
     [Flags]
-    public enum PieceType
+    public enum PieceType : byte
     {
         None = 0,
-        WhitePawn = 1,
-        WhiteKnight = 2,
-        WhiteBishop = 4,
-        WhiteRook = 8,
-        WhiteQueen = 16,
-        WhiteKing = 32,
-        BlackPawn = 64,
-        BlackKnight = 128,
-        BlackBishop = 256,
-        BlackRook = 512,
-        BlackQueen = 1024,
-        BlackKing = 2048,
+        White = 1,
+        Pawn = 2,
+        Knight = 4,
+        Bishop = 8,
+        Rook = 16,
+        Queen = 32,
+        King = 64,
 
-        WhitePiece = WhitePawn | WhiteKnight | WhiteBishop | WhiteRook | WhiteQueen | WhiteKing,
-        BlackPiece = BlackPawn | BlackKnight | BlackBishop | BlackRook | BlackQueen | BlackKing,
+        DiagonalRay = Bishop | Queen | White,
+        StraightRay = Rook | Queen | White,
+        RayPiece = DiagonalRay | StraightRay,
     }
 }

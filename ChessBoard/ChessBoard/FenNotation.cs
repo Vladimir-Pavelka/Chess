@@ -7,15 +7,15 @@
     internal static class FenNotation
     {
         private static readonly IDictionary<PieceType, string> _pieceTypeToFen = new Dictionary<PieceType, string> {
-                { PieceType.BlackPawn, "p" }, { PieceType.BlackRook, "r" }, { PieceType.BlackKnight, "n" },
-                { PieceType.BlackBishop, "b" }, { PieceType.BlackQueen, "q" }, { PieceType.BlackKing, "k" },
-                { PieceType.WhitePawn, "P" }, { PieceType.WhiteRook, "R" }, { PieceType.WhiteKnight, "N" },
-                { PieceType.WhiteBishop, "B" }, { PieceType.WhiteQueen, "Q" }, { PieceType.WhiteKing, "K" }
+                { PieceType.Pawn, "p" }, { PieceType.Rook, "r" }, { PieceType.Knight, "n" },
+                { PieceType.Bishop, "b" }, { PieceType.Queen, "q" }, { PieceType.King, "k" },
+                { PieceType.Pawn | PieceType.White, "P" }, { PieceType.Rook | PieceType.White, "R" }, { PieceType.Knight | PieceType.White, "N" },
+                { PieceType.Bishop | PieceType.White, "B" }, { PieceType.Queen | PieceType.White, "Q" }, { PieceType.King | PieceType.White, "K" }
         };
 
         private static readonly IDictionary<string, PieceType> _fenToPieceType = _pieceTypeToFen.ToDictionary(x => x.Value, x => x.Key);
 
-        public static string GetFenString(PieceType[,] boardState, Move lastMove, CastlingInfo castlingInfo, int halfmovesSinceLastCaptureOrPawnAdvance, int fullmoveCount)
+        public static string GetFenString(PieceType[,] boardState, Move lastMove, Castling castlingInfo, int halfmovesSinceLastCaptureOrPawnAdvance, int fullmoveCount)
         {
             var boardContent = GetBoardContentFenString(boardState);
             var isWhitesMove = !lastMove.IsWhitesMove;
@@ -59,19 +59,19 @@
             return result.ToString();
         }
 
-        private static string GetCastlingAvailabilityFenString(CastlingInfo castlingInfo)
+        private static string GetCastlingAvailabilityFenString(Castling castlingInfo)
         {
             var castlingAvailability = string.Empty;
-            if (!castlingInfo.WhiteKingMoved)
+            if (!castlingInfo.HasFlag(Castling.WhiteKingMoved))
             {
-                if (!castlingInfo.WhiteKingsideRookMoved) castlingAvailability += "K";
-                if (!castlingInfo.WhiteQueensideRookMoved) castlingAvailability += "Q";
+                if (!castlingInfo.HasFlag(Castling.WhiteKingsideRookMoved)) castlingAvailability += "K";
+                if (!castlingInfo.HasFlag(Castling.WhiteQueensideRookMoved)) castlingAvailability += "Q";
             }
 
-            if (!castlingInfo.BlackKingMoved)
+            if (!castlingInfo.HasFlag(Castling.BlackKingMoved))
             {
-                if (!castlingInfo.BlackKingsideRookMoved) castlingAvailability += "k";
-                if (!castlingInfo.BlackQueensideRookMoved) castlingAvailability += "q";
+                if (!castlingInfo.HasFlag(Castling.BlackKingsideRookMoved)) castlingAvailability += "k";
+                if (!castlingInfo.HasFlag(Castling.BlackQueensideRookMoved)) castlingAvailability += "q";
             }
 
             return string.IsNullOrEmpty(castlingAvailability) ? "-" : castlingAvailability;
@@ -114,21 +114,22 @@
             return boardContent;
         }
 
-        public static CastlingInfo GetCastlingInfo(string fen)
+        public static Castling GetCastlingInfo(string fen)
         {
             // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
             var castlingFen = fen.Split(" ")[2];
-            var castlingInfo = new CastlingInfo
-            {
-                WhiteKingMoved = !new[] { "K", "Q" }.Any(castlingFen.Contains),
-                WhiteKingsideRookMoved = !castlingFen.Contains("K"),
-                WhiteQueensideRookMoved = !castlingFen.Contains("Q"),
-                BlackKingMoved = !new[] { "k", "q" }.Any(castlingFen.Contains),
-                BlackKingsideRookMoved = !castlingFen.Contains("k"),
-                BlackQueensideRookMoved = !castlingFen.Contains("q")
-            };
-
-            return castlingInfo;
+            return new (bool shouldSetFlag, Castling flag)[] {
+                (!new[] { "K", "Q" }.Any(castlingFen.Contains), Castling.WhiteKingMoved),
+                (!castlingFen.Contains("K"), Castling.WhiteKingsideRookMoved),
+                (!castlingFen.Contains("Q"), Castling.WhiteQueensideRookMoved),
+                (!new[] { "k", "q" }.Any(castlingFen.Contains),Castling.BlackKingMoved),
+                (!castlingFen.Contains("k"), Castling.BlackKingsideRookMoved),
+                (!castlingFen.Contains("q"), Castling.BlackQueensideRookMoved)
+            }
+            .Where(x => x.shouldSetFlag)
+            .Select(x => x.flag)
+            .Concat(new[] { default(Castling) })
+            .Aggregate((castling, flag) => castling | flag);
         }
 
         public static bool GetIsWhitesMove(string fen)
@@ -154,14 +155,14 @@
             var isWhitesMove = GetIsWhitesMove(fen);
             var enPassantFen = fen.Split(" ")[3];
 
-            var lastMovePlayerPiece = isWhitesMove ? PieceType.BlackPawn : PieceType.WhitePawn;
+            var lastMovePlayerPiece = isWhitesMove ? PieceType.King : PieceType.White;
 
             if (enPassantFen == "-")
             {
                 var dummyColoredMove = new Move(lastMovePlayerPiece, MoveType.Move, (0, 0), (0, 0));
                 return dummyColoredMove;
             }
-            
+
             var col = enPassantFen[0] - 'a';
             var row = 8 - int.Parse($"{enPassantFen[1]}");
 
