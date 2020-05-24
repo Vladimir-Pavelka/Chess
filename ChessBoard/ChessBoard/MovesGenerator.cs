@@ -14,12 +14,12 @@
         {
             _getPieceMovesFnMap = new Dictionary<PieceType, MovesFactory>
             {
-                { PieceType.Pawn, GetPawnMoves },
-                { PieceType.Knight, GetKnightMoves },
-                { PieceType.Bishop, GetBishopMoves },
-                { PieceType.Rook, GetRookMoves },
-                { PieceType.Queen, GetQueenMoves },
-                { PieceType.King, GetKingMoves },
+                { PieceType.Pawn, GetPawnMoves },{ PieceType.White | PieceType.Pawn, GetPawnMoves },
+                { PieceType.Knight, GetKnightMoves },{ PieceType.White | PieceType.Knight, GetKnightMoves },
+                { PieceType.Bishop, GetBishopMoves },{ PieceType.White | PieceType.Bishop, GetBishopMoves },
+                { PieceType.Rook, GetRookMoves },{ PieceType.White | PieceType.Rook, GetRookMoves },
+                { PieceType.Queen, GetQueenMoves },{ PieceType.White | PieceType.Queen, GetQueenMoves },
+                { PieceType.King, GetKingMoves },{ PieceType.White | PieceType.King, GetKingMoves },
             };
         }
 
@@ -43,7 +43,7 @@
 
         private IEnumerable<Move> GetSingleFrontStepMoves(Piece pawn, Board board)
         {
-            var destRow = pawn.Position.row + (pawn.IsWhite ? -1 : 1);
+            var destRow = pawn.Position.row + (board.IsWhitesTurn ? -1 : 1);
             var dest = (row: destRow, pawn.Position.col);
             if (!board.IsEmptyAt(dest)) yield break;
 
@@ -53,18 +53,18 @@
                 yield break;
             }
 
-            var promotionPieceTypes = pawn.IsWhite ? _whitePromotionPieces : _blackPromotionPieces;
+            var promotionPieceTypes = board.IsWhitesTurn ? _whitePromotionPieces : _blackPromotionPieces;
             foreach (var move in promotionPieceTypes.Select(pt => new Move(pawn.Type, MoveType.Move, pawn.Position, dest, pt)))
                 yield return move;
         }
 
         private IEnumerable<Move> GetDoubleFrontStepMoves(Piece pawn, Board board)
         {
-            var startPosRow = pawn.IsWhite ? whitePawnStartRow : blackPawnStartRow;
+            var startPosRow = board.IsWhitesTurn ? whitePawnStartRow : blackPawnStartRow;
             var isStartPos = pawn.Position.row == startPosRow;
             if (!isStartPos) yield break;
 
-            var destRow = pawn.Position.row + (pawn.IsWhite ? -2 : 2);
+            var destRow = pawn.Position.row + (board.IsWhitesTurn ? -2 : 2);
             var dest = (row: destRow, pawn.Position.col);
             var fieldInBetween = Avg(pawn.Position, dest);
             if (board.IsEmptyAt(dest) && board.IsEmptyAt(fieldInBetween))
@@ -74,11 +74,11 @@
         private readonly (int row, int col)[] _pawnCaptureOffsets = new[] { (0, 1), (0, -1) };
         private IEnumerable<Move> GetPawnCaptureMoves(Piece pawn, Board board)
         {
-            var captureRow = pawn.Position.row + (pawn.IsWhite ? -1 : 1);
+            var captureRow = pawn.Position.row + (board.IsWhitesTurn ? -1 : 1);
             var captureDestinations = _pawnCaptureOffsets
                 .Select(off => (row: captureRow, col: pawn.Position.col + off.col))
                 .Where(IsInBoard)
-                .Where(dest => dest == board.EnPassantTarget || !board.IsEmptyAt(dest) && pawn.IsOponentOf(board[dest]));
+                .Where(dest => dest == board.EnPassantTarget || pawn.IsOponentOf(board[dest]));
 
             foreach (var dest in captureDestinations)
             {
@@ -86,10 +86,10 @@
                 {
                     var moveType = dest == board.EnPassantTarget ? MoveType.EnPassantCapture : MoveType.Capture;
                     yield return new Move(pawn.Type, moveType, pawn.Position, dest);
-                    yield break;
+                    continue;
                 }
 
-                var promotionPieceTypes = pawn.IsWhite ? _whitePromotionPieces : _blackPromotionPieces;
+                var promotionPieceTypes = board.IsWhitesTurn ? _whitePromotionPieces : _blackPromotionPieces;
                 foreach (var move in promotionPieceTypes.Select(pt => new Move(pawn.Type, MoveType.Capture, pawn.Position, dest, pt)))
                     yield return move;
             }
@@ -127,23 +127,24 @@
 
         private IEnumerable<Move> GetKingCastlingMoves(Piece king, Board board)
         {
-            var kingMove = king.IsWhite ? Castling.WhiteKingMoved : Castling.BlackKingMoved;
+            var isKingWhite = board.IsWhitesTurn;
+            var kingMove = isKingWhite ? Castling.WhiteKingMoved : Castling.BlackKingMoved;
             if (board.Castling.HasFlag(kingMove)) yield break;
 
-            var kingsideRookMove = king.IsWhite ? Castling.WhiteKingsideRookMoved : Castling.BlackKingsideRookMoved;
+            var kingsideRookMove = isKingWhite ? Castling.WhiteKingsideRookMoved : Castling.BlackKingsideRookMoved;
             var hasKingsideRookMoved = board.Castling.HasFlag(kingsideRookMove);
             if (!hasKingsideRookMoved)
             {
                 var dest = (row: king.Position.row, col: king.Position.col + 2);
                 if (board.IsEmptyAt((dest.row, dest.col - 1)) &&
                     board.IsEmptyAt(dest) &&
-                    !IsAttacked(king.Position, king.Type, board) &&
-                    !IsAttacked((dest.row, dest.col - 1), king.Type, board) &&
-                    !IsAttacked(dest, king.Type, board))
+                    !IsAttacked(king.Position, isKingWhite, board) &&
+                    !IsAttacked((dest.row, dest.col - 1), isKingWhite, board) &&
+                    !IsAttacked(dest, isKingWhite, board))
                     yield return new Move(king.Type, MoveType.Castle, king.Position, dest);
             }
 
-            var queensideRookMove = king.IsWhite ? Castling.WhiteQueensideRookMoved : Castling.BlackQueensideRookMoved;
+            var queensideRookMove = isKingWhite ? Castling.WhiteQueensideRookMoved : Castling.BlackQueensideRookMoved;
             var hasQueensideRookMoved = board.Castling.HasFlag(queensideRookMove);
             if (!hasQueensideRookMoved)
             {
@@ -151,9 +152,9 @@
                 if (board.IsEmptyAt((dest.row, dest.col - 1)) &&
                     board.IsEmptyAt(dest) &&
                     board.IsEmptyAt((dest.row, dest.col + 1)) &&
-                    !IsAttacked(king.Position, king.Type, board) &&
-                    !IsAttacked((dest.row, dest.col + 1), king.Type, board) &&
-                    !IsAttacked(dest, king.Type, board))
+                    !IsAttacked(king.Position, isKingWhite, board) &&
+                    !IsAttacked((dest.row, dest.col + 1), isKingWhite, board) &&
+                    !IsAttacked(dest, isKingWhite, board))
                     yield return new Move(king.Type, MoveType.Castle, king.Position, dest);
             }
         }
@@ -161,7 +162,7 @@
         private IEnumerable<Move> ScanDirection((int row, int col) directionalOffset, int maxMovesInAnyDirection, Piece rayPiece, Board board)
         {
             var destinations = Enumerable.Range(1, maxMovesInAnyDirection)
-                .Select(q => (row: directionalOffset.row + q * rayPiece.Position.row, col: directionalOffset.col + q * rayPiece.Position.col))
+                .Select(q => (row: q * directionalOffset.row + rayPiece.Position.row, col: q * directionalOffset.col + rayPiece.Position.col))
                 .TakeWhile(IsInBoard);
 
             foreach (var dest in destinations)
@@ -207,10 +208,10 @@
 
         private static readonly (int row, int col) _attacksBitMapCenter = (7, 7);
 
-        private static bool IsAttacked((int row, int col) defPos, PieceType defenderColor, Board board)
+        public static bool IsAttacked((int row, int col) defPos, bool isDefenderWhite, Board board)
         {
-            var enemyPieces = defenderColor.HasFlag(PieceType.White) ? board.WhitePieces : board.BlackPieces;
-            return enemyPieces.Any(attacker =>
+            var attackers = isDefenderWhite ? board.BlackPieces : board.WhitePieces;
+            return attackers.Any(attacker =>
             {
                 var defenderBitMapPosRow = defPos.row - attacker.Position.row + _attacksBitMapCenter.row;
                 var defenderBitMapPosCol = defPos.col - attacker.Position.col + _attacksBitMapCenter.col;
@@ -218,8 +219,8 @@
                 if (!isInLineOfSight) return false;
                 if (PieceType.RayPiece.HasFlag(attacker.Type)) return !IsRayBlocked(defPos, attacker.Position, board);
                 if (!attacker.Type.HasFlag(PieceType.Pawn)) return true;
-                var isInFrontOfPawn = attacker.Type.HasFlag(PieceType.White) && attacker.Position.row > defPos.row ||
-                !defenderColor.HasFlag(PieceType.White) && attacker.Position.row < defPos.row;
+                var isInFrontOfPawn = isDefenderWhite && attacker.Position.row < defPos.row ||
+                        !isDefenderWhite && attacker.Position.row > defPos.row;
 
                 return isInFrontOfPawn;
             });
